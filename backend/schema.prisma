@@ -1,0 +1,205 @@
+// ============================================================================
+// Digital Invitation Platform — Prisma schema
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum PackageTier {
+  REGULAR
+  PREMIUM
+  EXCLUSIVE
+  VIP
+}
+
+enum AttendanceStatus {
+  HADIR
+  TIDAK_HADIR
+  MASIH_RAGU
+}
+
+model Customer {
+  id          String       @id @default(cuid())
+  email       String       @unique
+  name        String
+  passwordHash String
+  invitations Invitation[]
+  orders      Order[]
+  createdAt   DateTime     @default(now())
+}
+
+model Package {
+  id          String       @id @default(cuid())
+  tier        PackageTier  @unique
+  priceRupiah Int
+  invitations Invitation[]
+}
+
+model Template {
+  id          String       @id @default(cuid())
+  slug        String       @unique
+  name        String
+  minTier     PackageTier
+  invitations Invitation[]
+}
+
+model Invitation {
+  id             String    @id @default(cuid())
+  slug           String    @unique
+  customer       Customer  @relation(fields: [customerId], references: [id])
+  customerId     String
+  package        Package   @relation(fields: [packageId], references: [id])
+  packageId      String
+  template       Template  @relation(fields: [templateId], references: [id])
+  templateId     String
+
+  groomName      String
+  brideName      String
+  groomParents   String?
+  brideParents   String?
+  groomPhotoUrl  String?
+  bridePhotoUrl  String?
+  heroPhotoUrl   String?
+
+  colorTheme     Json      // ColorTheme
+  headingFont    String
+  bodyFont       String
+
+  countdownDate  DateTime
+  musicUrl       String?
+
+  isPublished    Boolean   @default(false)
+  expiresAt      DateTime?
+
+  story          StoryItem[]
+  events         EventItem[]
+  gallery        GalleryImage[]
+  gifts          GiftAccount[]
+  guests         Guest[]
+  rsvps          RSVP[]
+  wishes         Wish[]
+  analytics      AnalyticsEvent[]
+
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([customerId])
+}
+
+model StoryItem {
+  id           String     @id @default(cuid())
+  invitation   Invitation @relation(fields: [invitationId], references: [id], onDelete: Cascade)
+  invitationId String
+  year         String
+  title        String
+  description  String
+  imageUrl     String?
+  order        Int
+
+  @@index([invitationId])
+}
+
+model EventItem {
+  id           String     @id @default(cuid())
+  invitation   Invitation @relation(fields: [invitationId], references: [id], onDelete: Cascade)
+  invitationId String
+  name         String
+  date         DateTime
+  startTime    String
+  endTime      String
+  venueName    String
+  address      String
+  mapsUrl      String?
+  description  String?
+  order        Int
+
+  @@index([invitationId])
+}
+
+model GalleryImage {
+  id           String     @id @default(cuid())
+  invitation   Invitation @relation(fields: [invitationId], references: [id], onDelete: Cascade)
+  invitationId String
+  url          String
+  caption      String?
+  order        Int
+
+  @@index([invitationId])
+}
+
+model GiftAccount {
+  id             String     @id @default(cuid())
+  invitation     Invitation @relation(fields: [invitationId], references: [id], onDelete: Cascade)
+  invitationId   String
+  bankName       String
+  accountHolder  String
+  accountNumber  String
+  description    String?
+
+  @@index([invitationId])
+}
+
+model Guest {
+  id           String      @id @default(cuid())
+  invitation   Invitation  @relation(fields: [invitationId], references: [id], onDelete: Cascade)
+  invitationId String
+  name         String
+  slug         String?
+  createdAt    DateTime    @default(now())
+
+  @@index([invitationId])
+  @@unique([invitationId, slug])
+}
+
+model RSVP {
+  id             String            @id @default(cuid())
+  invitation     Invitation        @relation(fields: [invitationId], references: [id], onDelete: Cascade)
+  invitationId   String
+  guestName      String
+  status         AttendanceStatus
+  attendeeCount  Int
+  message        String?
+  ipHash         String?
+  submittedAt    DateTime          @default(now())
+
+  @@index([invitationId])
+}
+
+model Wish {
+  id            String     @id @default(cuid())
+  invitation    Invitation @relation(fields: [invitationId], references: [id], onDelete: Cascade)
+  invitationId  String
+  guestName     String
+  message       String
+  isHidden      Boolean    @default(false)
+  submittedAt   DateTime   @default(now())
+
+  @@index([invitationId])
+}
+
+model AnalyticsEvent {
+  id           String     @id @default(cuid())
+  invitation   Invitation @relation(fields: [invitationId], references: [id], onDelete: Cascade)
+  invitationId String
+  eventType    String     // "view", "rsvp_submitted", "wish_submitted", "share"
+  createdAt    DateTime   @default(now())
+
+  @@index([invitationId])
+}
+
+model Order {
+  id          String      @id @default(cuid())
+  customer    Customer    @relation(fields: [customerId], references: [id])
+  customerId  String
+  packageTier PackageTier
+  amount      Int
+  status      String      // "pending", "paid", "failed", "refunded"
+  paymentRef  String?     // set by payment-provider webhook, never client input
+  createdAt   DateTime    @default(now())
+}
